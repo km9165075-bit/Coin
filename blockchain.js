@@ -1,15 +1,19 @@
 const Block = require('./block');
+const Transaction = require('./transaction');
 
 class Blockchain {
+
     constructor() {
         this.chain = [this.createGenesisBlock()];
         this.difficulty = 3;
+        this.pendingTransactions = [];
+        this.miningReward = 50;
     }
 
     createGenesisBlock() {
         return new Block(
             0,
-            "01/01/2025",
+            Date.now(),
             "Genesis Block",
             "0"
         );
@@ -19,15 +23,62 @@ class Blockchain {
         return this.chain[this.chain.length - 1];
     }
 
-    addBlock(newBlock) {
-        newBlock.previousHash = this.getLatestBlock().hash;
-        newBlock.hash = newBlock.calculateHash();
-        newBlock.mineBlock(this.difficulty);
-        this.chain.push(newBlock);
+    createTransaction(transaction) {
+        this.pendingTransactions.push(transaction);
+    }
+
+    minePendingTransactions(miningRewardAddress) {
+
+        let block = new Block(
+            this.chain.length,
+            Date.now(),
+            this.pendingTransactions
+        );
+
+        block.previousHash = this.getLatestBlock().hash;
+
+        console.log("Mining block...");
+        block.mineBlock(this.difficulty);
+
+        this.chain.push(block);
+
+        this.pendingTransactions = [
+            new Transaction(
+                "SYSTEM",
+                miningRewardAddress,
+                this.miningReward
+            )
+        ];
+    }
+
+    getBalanceOfAddress(address) {
+
+        let balance = 0;
+
+        for (const block of this.chain) {
+
+            if (Array.isArray(block.data)) {
+
+                for (const transaction of block.data) {
+
+                    if (transaction.sender === address) {
+                        balance -= transaction.amount;
+                    }
+
+                    if (transaction.receiver === address) {
+                        balance += transaction.amount;
+                    }
+                }
+            }
+        }
+
+        return balance;
     }
 
     isChainValid() {
+
         for (let i = 1; i < this.chain.length; i++) {
+
             const currentBlock = this.chain[i];
             const previousBlock = this.chain[i - 1];
 
@@ -41,29 +92,6 @@ class Blockchain {
         }
 
         return true;
-    }
-
-    getBalanceOfAddress(address) {
-        let balance = 0;
-
-        for (const block of this.chain) {
-
-            if (
-                typeof block.data === "object" &&
-                block.data.sender
-            ) {
-
-                if (block.data.sender === address) {
-                    balance -= block.data.amount;
-                }
-
-                if (block.data.receiver === address) {
-                    balance += block.data.amount;
-                }
-            }
-        }
-
-        return balance;
     }
 }
 
